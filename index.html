@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Wattpad Downloader</title>
+</head>
+<body style="font-family: Arial; text-align:center; margin-top:50px;">
+  <h1>Wattpad Downloader</h1>
+
+  <input id="url" placeholder="Paste Wattpad link..." style="width:300px; padding:10px;" />
+  <br><br>
+
+  <button onclick="download()">Download EPUB</button>
+
+  <p id="status"></p>
+
+  <script>
+    async function download() {
+      const url = document.getElementById("url").value;
+      document.getElementById("status").innerText = "Đang tải...";
+
+      const res = await fetch("https://wattpaddownloader.onrender.com/api/download", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ url })
+      });
+
+      const data = await res.json();
+
+      if (data.download_url) {
+        window.location.href = data.download_url;
+      } else {
+        document.getElementById("status").innerText = "Lỗi!";
+      }
+    }
+  </script>
+</body>
+</html>
