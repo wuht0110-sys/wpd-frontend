@@ -15,7 +15,7 @@
   <p id="status"></p>
 
   <script>
-    async function download() {
+    function download() {
       const url = document.getElementById("url").value;
       const status = document.getElementById("status");
 
@@ -24,30 +24,13 @@
         return;
       }
 
-      status.innerText = "⏳ Đang tải...";
+      status.innerText = "⏳ Đang chuyển hướng...";
 
-      try {
-        const res = await fetch("https://wattpaddownloader.onrender.com/download", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({ url })
-        });
-
-        if (!res.ok) throw new Error();
-
-        const blob = await res.blob();
-        const link = document.createElement("a");
-
-        link.href = window.URL.createObjectURL(blob);
-        link.download = "book.epub";
-        link.click();
-
-        status.innerText = "✅ Tải xong!";
-      } catch (err) {
-        status.innerText = "❌ Lỗi! Có thể link sai hoặc server sleep.";
-      }
+      // redirect trực tiếp sang backend
+      window.open(
+        "https://wattpaddownloader.onrender.com/download?url=" + encodeURIComponent(url),
+        "_blank"
+      );
     }
   </script>
 
