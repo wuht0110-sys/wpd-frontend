@@ -1,199 +1,38 @@
-# 🚀 Wattpad → EPUB (Full Pro Version)
-
-## 📦 Cấu trúc project
-```
-wattpad-epub/
- ├── server/
- │    ├── server.js
- │    └── package.json
- └── client/
-      └── index.html
-```
-
----
-
-## ⚙️ 1. Backend (Node.js - chuẩn crawl full chương)
-
-### package.json
-```json
-{
-  "name": "wattpad-epub",
-  "version": "1.0.0",
-  "main": "server.js",
-  "scripts": { "start": "node server.js" },
-  "dependencies": {
-    "axios": "^1.6.0",
-    "cheerio": "^1.0.0",
-    "cors": "^2.8.5",
-    "epub-gen": "^0.1.0",
-    "express": "^4.18.2"
-  }
-}
-```
-
-### server.js
-```js
-const express = require("express");
-const axios = require("axios");
-const cheerio = require("cheerio");
-const EPUB = require("epub-gen");
-const cors = require("cors");
-
-const app = express();
-app.use(cors());
-app.use(express.json());
-
-async function getChapterLinks(url) {
-  const { data } = await axios.get(url, { headers: { "User-Agent": "Mozilla/5.0" } });
-  const $ = cheerio.load(data);
-
-  let links = [];
-  $("a[href*='/story/'][href*='/chapter/']").each((i, el) => {
-    const link = "https://www.wattpad.com" + $(el).attr("href");
-    if (!links.includes(link)) links.push(link);
-  });
-
-  return links.slice(0, 50); // limit tránh quá tải
-}
-
-async function getChapterContent(url) {
-  const { data } = await axios.get(url, { headers: { "User-Agent": "Mozilla/5.0" } });
-  const $ = cheerio.load(data);
-
-  const title = $("h1").text() || "Chapter";
-
-  let content = "";
-  $("p").each((i, el) => {
-    content += `<p>${$(el).text()}</p>`;
-  });
-
-  return { title, data: content };
-}
-
-app.post("/download", async (req, res) => {
-  try {
-    const { url } = req.body;
-
-    const { data } = await axios.get(url);
-    const $ = cheerio.load(data);
-
-    const bookTitle = $("h1").first().text() || "Wattpad Book";
-
-    const chapterLinks = await getChapterLinks(url);
-
-    let chapters = [];
-
-    for (let link of chapterLinks) {
-      try {
-        const chap = await getChapterContent(link);
-        chapters.push(chap);
-        console.log("✔", chap.title);
-      } catch (e) {
-        console.log("❌ lỗi chương", link);
-      }
-    }
-
-    const option = {
-      title: bookTitle,
-      author: "Wattpad",
-      content: chapters
-    };
-
-    const filePath = `./book.epub`;
-    await new EPUB(option, filePath).promise;
-
-    res.download(filePath);
-  } catch (err) {
-    console.error(err);
-    res.status(500).send("Lỗi server");
-  }
-});
-
-app.listen(3000, () => console.log("http://localhost:3000"));
-```
-
----
-
-## 🌐 2. Frontend (UI đẹp + loading)
-
-### index.html
-```html
 <!DOCTYPE html>
 <html lang="vi">
 <head>
 <meta charset="UTF-8">
-<title>Wattpad Downloader Pro</title>
+<title>Wattpad Downloader</title>
 <style>
-body { font-family: Arial; text-align:center; padding:50px; }
-input { width:60%; padding:12px; }
-button { padding:12px 20px; margin-top:10px; cursor:pointer; }
-#status { margin-top:20px; }
-.loader { border:4px solid #eee; border-top:4px solid #333; border-radius:50%; width:30px; height:30px; animation:spin 1s linear infinite; margin:auto; }
-@keyframes spin { 100% { transform:rotate(360deg);} }
+body { font-family: Arial; text-align:center; padding:50px }
+input { width:60%; padding:10px }
+button { padding:10px 20px; margin-top:10px }
 </style>
 </head>
 <body>
-<h2>📚 Wattpad → EPUB Pro</h2>
-<input id="url" placeholder="Dán link truyện Wattpad" />
+
+<h2>📚 Wattpad → EPUB</h2>
+<input id="url" placeholder="Dán link chương Wattpad" />
 <br>
-<button onclick="download()">Tải ngay</button>
-<div id="status"></div>
+<button onclick="download()">Tải</button>
 
 <script>
 async function download() {
   const url = document.getElementById("url").value;
-  const status = document.getElementById("status");
 
-  if (!url) return alert("Nhập link!");
+  const res = await fetch("/download", {
+    method: "POST",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({ url })
+  });
 
-  status.innerHTML = "<div class='loader'></div><p>Đang xử lý (30-60s)...</p>";
-
-  try {
-    const res = await fetch("http://localhost:3000/download", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url })
-    });
-
-    const blob = await res.blob();
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = "book.epub";
-    a.click();
-
-    status.innerHTML = "✅ Tải xong!";
-  } catch (err) {
-    status.innerHTML = "❌ Lỗi";
-  }
+  const blob = await res.blob();
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "book.epub";
+  a.click();
 }
 </script>
+
 </body>
 </html>
-```
-
----
-
-## 🔥 Tính năng bản này
-- Crawl nhiều chương
-- Tạo EPUB chuẩn
-- Có loading
-- Chạy local ổn định
-
----
-
-## ⚠️ Giới hạn thực tế
-- Wattpad có thể chặn → cần proxy/VPN
-- Một số truyện private không crawl được
-- HTML Wattpad thay đổi → phải update selector
-
----
-
-## 🚀 Nếu bạn muốn nâng cấp nữa
-Mình có thể build tiếp cho bạn:
-- Auto vượt anti-bot (puppeteer)
-- Tải full 1000+ chương
-- Deploy web online
-- Login account Wattpad
-- UI giống tool thật
-
-👉 Nói mình: "lên bản ultimate" là mình build tiếp cho bạn 🔥
