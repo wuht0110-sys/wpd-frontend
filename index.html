@@ -1,38 +1,90 @@
 <!DOCTYPE html>
-<html>
+<html lang="vi">
 <head>
-  <title>Wattpad Downloader</title>
+  <meta charset="UTF-8">
+  <title>Wattpad to EPUB</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+  <style>
+    body { font-family: Arial; text-align: center; padding: 40px; }
+    input { width: 60%; padding: 10px; }
+    button { padding: 10px 20px; margin-top: 10px; }
+    #status { margin-top: 20px; }
+  </style>
 </head>
-<body style="font-family: Arial; text-align:center; margin-top:50px;">
-
-  <h1>📖 Wattpad Downloader</h1>
-
-  <input id="url" placeholder="Paste Wattpad link..." style="width:300px; padding:10px;" />
-  <br><br>
-
-  <button onclick="download()" style="padding:10px 20px;">Download EPUB</button>
-
+<body>
+  <h2>Wattpad → EPUB</h2>
+  <input id="url" placeholder="Dán link truyện Wattpad..." />
+  <br>
+  <button onclick="download()">Tải EPUB</button>
   <p id="status"></p>
 
-  <script>
-    function download() {
-      const url = document.getElementById("url").value;
-      const status = document.getElementById("status");
+<script>
+async function download() {
+  const url = document.getElementById("url").value;
+  const status = document.getElementById("status");
 
-      if (!url) {
-        status.innerText = "Vui lòng nhập link!";
-        return;
-      }
+  if (!url) return alert("Nhập link trước!");
 
-      status.innerText = "⏳ Đang chuyển hướng...";
+  status.innerText = "Đang lấy dữ liệu...";
 
-      // redirect trực tiếp sang backend
-      window.open(
-        "https://wattpaddownloader.onrender.com/download?url=" + encodeURIComponent(url),
-        "_blank"
-      );
-    }
-  </script>
+  try {
+    const res = await fetch("https://api.allorigins.win/raw?url=" + encodeURIComponent(url));
+    const html = await res.text();
 
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, "text/html");
+
+    const title = doc.querySelector("h1")?.innerText || "truyen";
+    const paragraphs = [...doc.querySelectorAll("p")].map(p => `<p>${p.innerText}</p>`).join("\n");
+
+    status.innerText = "Đang tạo EPUB...";
+
+    const zip = new JSZip();
+
+    zip.file("mimetype", "application/epub+zip");
+
+    zip.folder("META-INF").file("container.xml", `<?xml version="1.0"?>
+<container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
+  <rootfiles>
+    <rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/>
+  </rootfiles>
+</container>`);
+
+    const oebps = zip.folder("OEBPS");
+
+    oebps.file("content.xhtml", `<?xml version="1.0" encoding="utf-8"?>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head><title>${title}</title></head>
+<body>
+<h1>${title}</h1>
+${paragraphs}
+</body>
+</html>`);
+
+    oebps.file("content.opf", `<?xml version="1.0" encoding="UTF-8"?>
+<package xmlns="http://www.idpf.org/2007/opf" version="2.0">
+  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+    <dc:title>${title}</dc:title>
+    <dc:language>vi</dc:language>
+  </metadata>
+  <manifest>
+    <item id="content" href="content.xhtml" media-type="application/xhtml+xml"/>
+  </manifest>
+  <spine>
+    <itemref idref="content"/>
+  </spine>
+</package>`);
+
+    const blob = await zip.generateAsync({ type: "blob" });
+    saveAs(blob, title + ".epub");
+
+    status.innerText = "Xong!";
+  } catch (err) {
+    console.error(err);
+    status.innerText = "Lỗi: không tải được truyện";
+  }
+}
+</script>
 </body>
 </html>
