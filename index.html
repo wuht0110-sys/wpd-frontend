@@ -4,36 +4,52 @@
   <title>Wattpad Downloader</title>
 </head>
 <body style="font-family: Arial; text-align:center; margin-top:50px;">
-  <h1>Wattpad Downloader</h1>
+
+  <h1>📖 Wattpad Downloader</h1>
 
   <input id="url" placeholder="Paste Wattpad link..." style="width:300px; padding:10px;" />
   <br><br>
 
-  <button onclick="download()">Download EPUB</button>
+  <button onclick="download()" style="padding:10px 20px;">Download EPUB</button>
 
   <p id="status"></p>
 
   <script>
     async function download() {
       const url = document.getElementById("url").value;
-      document.getElementById("status").innerText = "Đang tải...";
+      const status = document.getElementById("status");
 
-      const res = await fetch("https://wattpaddownloader.onrender.com/api/download", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ url })
-      });
+      if (!url) {
+        status.innerText = "Vui lòng nhập link!";
+        return;
+      }
 
-      const data = await res.json();
+      status.innerText = "⏳ Đang tải...";
 
-      if (data.download_url) {
-        window.location.href = data.download_url;
-      } else {
-        document.getElementById("status").innerText = "Lỗi!";
+      try {
+        const res = await fetch("https://wattpaddownloader.onrender.com/download", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ url })
+        });
+
+        if (!res.ok) throw new Error();
+
+        const blob = await res.blob();
+        const link = document.createElement("a");
+
+        link.href = window.URL.createObjectURL(blob);
+        link.download = "book.epub";
+        link.click();
+
+        status.innerText = "✅ Tải xong!";
+      } catch (err) {
+        status.innerText = "❌ Lỗi! Có thể link sai hoặc server sleep.";
       }
     }
   </script>
+
 </body>
 </html>
